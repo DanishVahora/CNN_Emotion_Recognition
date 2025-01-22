@@ -38,6 +38,10 @@ const EmotionDetector = () => {
         try {
             const response = await axios.post('https://cnn-emotion-recognition.onrender.com/detect-emotion', {
                 image: imageSrc
+              }, {
+                headers: {
+                  'Content-Type': 'application/json'
+                }
               });
           setDetectionData(response.data);
           if (response.data.faces.length > 0) {

@@ -14,14 +14,14 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173","https://emotionai-8r1c.onrender.com/"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Load model
-json_file = open("emotiondetector.json", "r")
+json_file = open("./emotiondetector.json", "r")
 model_json = json_file.read()
 json_file.close()
 model = model_from_json(model_json)

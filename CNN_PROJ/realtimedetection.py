@@ -4,7 +4,9 @@ import numpy as np
 from tkinter import Tk, filedialog
 
 # Load the pre-trained model
-json_file = open(r"D:\CNN_Emotion_Recognition\CNN_PROJ\emotiondetector.json", "r")
+json_file = open(r"./emotiondetector.json", "r")
+print("Loading model...")
+
 model_json = json_file.read()
 json_file.close()
 model = model_from_json(model_json)

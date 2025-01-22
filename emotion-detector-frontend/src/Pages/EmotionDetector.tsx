@@ -1,16 +1,29 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
+import  { useState, useRef, useEffect } from 'react';
 import { Camera, BarChart2, Settings, Download, RefreshCw } from 'lucide-react';
 import Webcam from 'react-webcam';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import Header from './Header';
 import Footer from './Footer';
-
+interface EmotionHistory {
+    timestamp: string;
+    emotion: string;
+    confidence: number;
+  }
+  interface DetectionData {
+    faces: {
+      emotion: string;
+      confidence: number;
+      bbox: [number, number, number, number];
+    }[];
+  }
+  
 const EmotionDetector = () => {
-  const webcamRef = useRef(null);
-  const [detectionData, setDetectionData] = useState(null);
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [emotionHistory, setEmotionHistory] = useState([]);
+    const webcamRef = useRef<Webcam | null>(null);
+    const [detectionData, setDetectionData] = useState<DetectionData | null>(null);
+    const [isDetecting, setIsDetecting] = useState(false);
+  const [emotionHistory, setEmotionHistory] = useState<EmotionHistory[]>([]);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [settings, setSettings] = useState({
     detectionInterval: 1000,
@@ -23,9 +36,9 @@ const EmotionDetector = () => {
       const imageSrc = webcamRef.current.getScreenshot();
       if (imageSrc) {
         try {
-          const response = await axios.post('http://localhost:8000/detect-emotion', {
-            image: imageSrc
-          });
+            const response = await axios.post('https://cnn-emotion-recognition.onrender.com/detect-emotion', {
+                image: imageSrc
+              });
           setDetectionData(response.data);
           if (response.data.faces.length > 0) {
             const timestamp = new Date().toLocaleTimeString();
@@ -43,7 +56,7 @@ const EmotionDetector = () => {
   }, []);
 
   useEffect(() => {
-    let intervalId;
+    let intervalId: NodeJS.Timeout | undefined;
     if (isDetecting) {
       intervalId = setInterval(captureFrame, settings.detectionInterval);
     }
@@ -103,7 +116,7 @@ const EmotionDetector = () => {
                   className="w-full rounded-lg"
                 />
                 
-                {settings.showBoundingBox && detectionData?.faces.map((face, index) => (
+                {settings.showBoundingBox && detectionData?.faces.map((face: { emotion: string; confidence: number; bbox: [number, number, number, number]; }, index: number) => (
                   <div
                     key={index}
                     style={{

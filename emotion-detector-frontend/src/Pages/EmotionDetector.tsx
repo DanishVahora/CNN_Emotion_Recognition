@@ -1,30 +1,18 @@
-import React from 'react';
-import  { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, BarChart2, Settings, Download, RefreshCw } from 'lucide-react';
 import Webcam from 'react-webcam';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import Header from './Header';
 import Footer from './Footer';
-interface EmotionHistory {
-    timestamp: string;
-    emotion: string;
-    confidence: number;
-  }
-  interface DetectionData {
-    faces: {
-      emotion: string;
-      confidence: number;
-      bbox: [number, number, number, number];
-    }[];
-  }
-  
+
 const EmotionDetector = () => {
-    const webcamRef = useRef<Webcam | null>(null);
-    const [detectionData, setDetectionData] = useState<DetectionData | null>(null);
-    const [isDetecting, setIsDetecting] = useState(false);
-  const [emotionHistory, setEmotionHistory] = useState<EmotionHistory[]>([]);
+  const webcamRef = useRef(null);
+  const [detectionData, setDetectionData] = useState(null);
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [emotionHistory, setEmotionHistory] = useState([]);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState(null);
   const [settings, setSettings] = useState({
     detectionInterval: 1000,
     showConfidence: true,
@@ -35,32 +23,45 @@ const EmotionDetector = () => {
     if (webcamRef.current) {
       const imageSrc = webcamRef.current.getScreenshot();
       if (imageSrc) {
-        try {
-            const response = await axios.post('https://cnn-emotion-recognition.onrender.com/detect-emotion', {
-                image: imageSrc
-              }, {
-                headers: {
-                  'Content-Type': 'application/json'
-                }
-              });
-          setDetectionData(response.data);
-          if (response.data.faces.length > 0) {
-            const timestamp = new Date().toLocaleTimeString();
-            setEmotionHistory(prev => [...prev, {
-              timestamp,
-              emotion: response.data.faces[0].emotion,
-              confidence: response.data.faces[0].confidence * 100
-            }].slice(-20));
-          }
-        } catch (error) {
-          console.error('Error:', error);
-        }
+        await processImage(imageSrc);
       }
     }
   }, []);
 
+  const processImage = async (imageSrc) => {
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/detect-emotion', {
+        image: imageSrc
+      });
+      setDetectionData(response.data);
+      if (response.data.faces.length > 0) {
+        const timestamp = new Date().toLocaleTimeString();
+        setEmotionHistory(prev => [...prev, {
+          timestamp,
+          emotion: response.data.faces[0].emotion,
+          confidence: response.data.faces[0].confidence * 100
+        }].slice(-20));
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
+
+  const handleImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageSrc = e.target.result;
+        setUploadedImage(imageSrc);
+        await processImage(imageSrc);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | undefined;
+    let intervalId;
     if (isDetecting) {
       intervalId = setInterval(captureFrame, settings.detectionInterval);
     }
@@ -113,33 +114,38 @@ const EmotionDetector = () => {
               </div>
 
               <div className="relative rounded-lg overflow-hidden">
-                <Webcam
-                  ref={webcamRef}
-                  audio={false}
-                  screenshotFormat="image/jpeg"
-                  className="w-full rounded-lg"
-                />
-                
-                {settings.showBoundingBox && detectionData?.faces.map((face: { emotion: string; confidence: number; bbox: [number, number, number, number]; }, index: number) => (
-                  <div
-                    key={index}
-                    style={{
-                      position: 'absolute',
-                      left: face.bbox[0],
-                      top: face.bbox[1],
-                      width: face.bbox[2],
-                      height: face.bbox[3],
-                      border: '2px solid #3B82F6',
-                      borderRadius: '8px'
-                    }}
-                  >
-                    {settings.showConfidence && (
-                      <div className="absolute -top-10 left-0 bg-blue-500 text-white px-3 py-1 rounded-lg text-sm font-medium shadow-lg">
-                        {face.emotion} ({(face.confidence * 100).toFixed(1)}%)
+                {uploadedImage ? (
+                  <div className="relative">
+                    <img src={uploadedImage} alt="Uploaded" className="w-full rounded-lg" />
+                    {settings.showBoundingBox && detectionData?.faces.map((face, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          position: 'absolute',
+                          left: face.bbox[0],
+                          top: face.bbox[1],
+                          width: face.bbox[2],
+                          height: face.bbox[3],
+                          border: '2px solid #3B82F6',
+                          borderRadius: '8px'
+                        }}
+                      >
+                        {settings.showConfidence && (
+                          <div className="absolute -top-10 left-0 bg-blue-500 text-white px-3 py-1 rounded-lg text-sm font-medium shadow-lg">
+                            {face.emotion} ({(face.confidence * 100).toFixed(1)}%)
+                          </div>
+                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <Webcam
+                    ref={webcamRef}
+                    audio={false}
+                    screenshotFormat="image/jpeg"
+                    className="w-full rounded-lg"
+                  />
+                )}
               </div>
 
               <div className="mt-6 flex justify-center">
@@ -156,6 +162,12 @@ const EmotionDetector = () => {
                     <span>{isDetecting ? 'Stop Detection' : 'Start Detection'}</span>
                   </div>
                 </button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="ml-4 px-4 py-2 border rounded-lg cursor-pointer"
+                />
               </div>
             </div>
           </div>
